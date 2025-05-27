@@ -1,6 +1,8 @@
 const readline = require("readline");
 const fs = require("fs");
 const { spawn } = require("child_process");
+const process = require('process');
+const os = require('os');
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -13,7 +15,7 @@ const prompt = () => {
     const parts = answer.trim().split(" ");
     const command = parts[0];
     const args = parts.slice(1);
-    const commandArray = ["exit", "echo", "type", "pwd"];
+    const commandArray = ["exit", "echo", "type", "pwd", "cd"];
     const PATH = process.env.PATH.split(":");
     const executablePath = findCommandInPath(PATH, command);
 
@@ -31,6 +33,11 @@ const prompt = () => {
     }
     if (command === "pwd") {
       console.log(process.cwd());
+      prompt();
+      return;
+    }
+    if (command === "cd") {
+      changeDirectory(command, args);
       prompt();
       return;
     }
@@ -102,4 +109,17 @@ function runExecutableCommand(command, args) {
   child.on("close", (code) => {
     prompt();
   });
+}
+
+function changeDirectory(command, args) {
+  const homeDir = os.homedir();
+  try {
+    if (args[0] === "~") {
+      process.chdir(homeDir);
+    } else {
+      process.chdir(args[0]);
+    }
+  } catch (err) {
+    console.error(`${command}: ${args[0]}: No such file or directory`);
+  }
 }
