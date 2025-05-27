@@ -13,7 +13,7 @@ const prompt = () => {
     const parts = answer.trim().split(" ");
     const command = parts[0];
     const args = parts.slice(1);
-    const commandArray = ["exit", "echo", "type"];
+    const commandArray = ["exit", "echo", "type", "pwd"];
     const PATH = process.env.PATH.split(":");
     const executablePath = findCommandInPath(PATH, command);
 
@@ -27,6 +27,11 @@ const prompt = () => {
     }
     if (command === "type") {
       type(args, commandArray, PATH);
+      return;
+    }
+    if (command === "pwd") {
+      console.log(process.cwd());
+      prompt();
       return;
     }
     if (executablePath) {
@@ -77,6 +82,15 @@ function type(args, commandArray, PATH) {
   prompt();
 }
 
+/**
+ * Executes an external command found in PATH using child_process.spawn()s
+ * This function spawns a child process to run the executable at the given path
+ * with the provided arguments. It uses 'stdio: inherit' to connect the child's
+ * stdin/stdout/stderr directly to the parent process, allowing interactive programs
+ * to work properly. The function handles process completion asynchronously -
+ * it waits for either an error or the process to close before returning control
+ * to the shell prompt.
+ */
 function runExecutableCommand(command, args) {
   const child = spawn(command, args, {
     stdio: "inherit",
