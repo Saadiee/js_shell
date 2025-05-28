@@ -3,6 +3,7 @@ const fs = require("fs");
 const { spawn } = require("child_process");
 const process = require('process');
 const os = require('os');
+const path = require("path");
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -12,9 +13,23 @@ const rl = readline.createInterface({
 
 const prompt = () => {
   rl.question("$ ", (answer) => {
-    const parts = answer.trim().split(" ");
+    // input parser function
+    function parseInput(input) {
+      const regex = /'([^']*)'|"([^"]*)"|(\S+)/g;
+      const args = [];
+      let match;
+
+      while ((match = regex.exec(input)) !== null) {
+        args.push(match[1] ?? match[2] ?? match[3]);
+      }
+
+      return args;
+    }
+
+    const parts = parseInput(answer.trim());
     const command = parts[0];
     const args = parts.slice(1);
+
     const commandArray = ["exit", "echo", "type", "pwd", "cd"];
     const PATH = process.env.PATH.split(":");
     const executablePath = findCommandInPath(PATH, command);
@@ -24,7 +39,7 @@ const prompt = () => {
       return;
     }
     if (command === "echo") {
-      echo(args);
+      echo(answer, command);
       return;
     }
     if (command === "type") {
@@ -42,7 +57,7 @@ const prompt = () => {
       return;
     }
     if (executablePath) {
-      runExecutableCommand(command, args);
+      runExecutableCommand(executablePath, args);
     } else {
       console.log(`${answer}: command not found`);
       prompt();
@@ -64,10 +79,34 @@ function findCommandInPath(PATH, command) {
   return null;
 }
 
-function echo(args) {
-  console.log(args.join(" "));
+function echo(answer, command) {
+  const argString = answer.trim().substring(command.length).trim();
+
+  const regex = /'([^']*)'|"([^"]*)"|(\S+)/g;
+  const pieces = [];
+  let match;
+  let lastEndIndex = 0;
+
+  while ((match = regex.exec(argString)) !== null) {
+    const value = match[1] || match[2] || match[3];
+    const currentStart = match.index;
+
+    // If no space between previous and current token, merge
+    if (pieces.length > 0 && currentStart === lastEndIndex) {
+      pieces[pieces.length - 1] += value;
+    } else {
+      pieces.push(value);
+    }
+
+    lastEndIndex = regex.lastIndex;
+  }
+
+  console.log(pieces.join(" "));
   prompt();
 }
+
+
+
 function type(args, commandArray, PATH) {
   const cmdName = args[0];
   const found = commandArray.includes(cmdName);
@@ -101,6 +140,7 @@ function type(args, commandArray, PATH) {
 function runExecutableCommand(command, args) {
   const child = spawn(command, args, {
     stdio: "inherit",
+    argv0: path.basename(command),
   });
   child.on("error", (err) => {
     console.error(`Failed to start process: ${err}`);
